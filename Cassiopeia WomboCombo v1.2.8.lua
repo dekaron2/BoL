@@ -1,5 +1,4 @@
 if myHero.charName ~= "Cassiopeia" then return end
---require "Collision"
 function OnLoad()
 	LoadMenu()
 	LoadVariables()
@@ -10,12 +9,10 @@ function OnLoad()
 	LoadEnemies()
 end
 function OnUnload()
-	PrintFloatText(myHero,2,"Cassiopeia WomboCombo v1.2.8 UnLoaded!")
-	newTarget = nil
-
+	PrintFloatText(myHero,2,"Cassiopeia WomboCombo v1.2.9 UnLoaded!")
 end
 function LoadMenu()
-	Config = scriptConfig("Cassiopeia WomboCombo 1.2.8", "Cassiopeia WomboCombo")
+	Config = scriptConfig("Cassiopeia WomboCombo 1.2.9", "Cassiopeia WomboCombo")
 	Config:addParam("harass", "Harass (X)", SCRIPT_PARAM_ONKEYDOWN, false, 88)
 	Config:addParam("teamFight", "TeamFight (SpaceBar)", SCRIPT_PARAM_ONKEYDOWN, false, 32)
 	Config:addParam("farm", "Farm (Z)", SCRIPT_PARAM_ONKEYTOGGLE, false, 90)
@@ -26,44 +23,44 @@ function LoadMenu()
 	Config:addParam("autoE", "Auto E (M)", SCRIPT_PARAM_ONKEYTOGGLE, true, 77)
 	Config:addParam("useUltKillable", "Use Ult 'killHim' (U)", SCRIPT_PARAM_ONKEYTOGGLE, true, 85)
 	--Config:addParam("nearestTarget", "Nearest Target (T)", SCRIPT_PARAM_ONKEYTOGGLE, false, 84)
+	--Config:permaShow("nearestTarget")
 	Config:addParam("setUltEnemies", "No. Enemies facing", SCRIPT_PARAM_SLICE, 1, 1, 6, 0)
 	Config:permaShow("setUltEnemies")
-	--Config:permaShow("nearestTarget")
 	Config:permaShow("useUltKillable")
 	Config:permaShow("autoE")
 	Config:permaShow("harass")
 	Config:permaShow("teamFight")
 	Config:permaShow("farm")
-	PrintFloatText(myHero,2,"Cassiopeia WomboCombo v1.2.8 Loaded!")
+	PrintFloatText(myHero,2,"Cassiopeia WomboCombo v1.2.9 Loaded!")
 end
 function LoadVariables()
 	ignite = nil
-	floattext = {"Harass Him!","Combo Killer!","Kill Him!","Ult him!"}
 	enemyHeros = {}
 	enemyHerosCount = 0
 	NextShot = 0
 	aaTime = 0
 	minionRange = false
-	wTick = 0
 	tick = 0
-	igniteActive = false
 	igniteTick = 0
+	wTick = 0
+	ksDamages = {}
+	newTarget = nil
 end
 function LoadSkillRanges()
-	rangeQ = 900
+	rangeQ = 925
 	rangeW = 950
 	rangeE = 700
 	rangeR = 750
 	killRange = 950
 end
 function LoadVIPPrediction()
-	tpQ = TargetPredictionVIP(rangeQ, 1650, 0.25)
+	tpQ = TargetPredictionVIP(rangeQ, 2000, 0.25)
 	tpW = TargetPredictionVIP(rangeW, 2000, 0.25)
-	tpR = TargetPredictionVIP(rangeR, 1850, 0.25)
+	tpR = TargetPredictionVIP(rangeR, 2000, 0.25)
 end
 function LoadMinions()
 	enemyMinion = minionManager(MINION_ENEMY, rangeQ, player, MINION_SORT_HEALTH_ASC)
-	jungleMinion = minionManager(MINION_JUNGLE, rangeQ, player, MINION_SORT_HEALTH_DES)
+	jungleMinion = minionManager(MINION_JUNGLE, rangeQ, player, MINION_SORT_HEALTH_ASC)
 end
 function LoadSummonerSpells()
 	if myHero:GetSpellData(SUMMONER_1).name:find("SummonerDot") then 
@@ -86,31 +83,38 @@ function LoadEnemies()
 end
 function OnTick()
 	if not myHero.dead then
-
 		QREADY = (myHero:CanUseSpell(_Q) == READY)
 		WREADY = (myHero:CanUseSpell(_W) == READY)
 		EREADY = (myHero:CanUseSpell(_E) == READY)
 		RREADY = (myHero:CanUseSpell(_R) == READY)
 		IREADY = (ignite ~= nil and myHero:CanUseSpell(ignite) == READY)
+		checkKillRange()
 		execute()
 		orbWalk()
 		jungleFarm()
 		if Config.farm and not Config.teamFight and not Config.harass then
-			farmCheck()
+			farmKey()
 		end
 		if Config.harass then
-			harassCheck()
+			harassKey()
 		end
 	end
 end
-
+function checkKillRange()
+	--ADD killRange here
+	if WREADY then
+		killRange = 950
+	elseif QREADY then
+		killRange = 925
+	else
+		killRange = 750
+	end
+end
 function Target()
 	local currentTarget = nil
-	local facing = 0
 	local killMana = 0
-	local ksMana = 0
+	local facing = 0
 	if ValidTarget(newTarget) then
-		igniteCheck(newTarget)
 		if GetDistance(newTarget)>killRange then
 			newTarget = nil
 		end
@@ -130,46 +134,74 @@ function Target()
 			local hxgdamage = (GetInventoryItemIsCastable(3146) and getDmg("HXG",Enemy,myHero) or 0) -- Hextech Gunblade
 			local bwcdamage = (GetInventoryItemIsCastable(3144) and getDmg("BWC",Enemy,myHero) or 0) -- Bilgewater Cutlass
 			local botrkdamage = (GetInventoryItemIsCastable(3153) and getDmg("RUINEDKING", Enemy, myHero) or 0) --Blade of the Ruined King
-			if IREADY then
-				idmg = getDmg("IGNITE",Enemy,myHero, 3)
-			else
-				idmg = 0
-			end
 			local onhitdmg = (GetInventoryHaveItem(3057) and getDmg("SHEEN",Enemy,myHero) or 0) + (GetInventoryHaveItem(3078) and getDmg("TRINITY",Enemy,myHero) or 0) + (GetInventoryHaveItem(3100) and getDmg("LICHBANE",Enemy,myHero) or 0) + (GetInventoryHaveItem(3025) and getDmg("ICEBORN",Enemy,myHero) or 0) + (GetInventoryHaveItem(3087) and getDmg("STATIKK",Enemy,myHero) or 0) + (GetInventoryHaveItem(3209) and getDmg("SPIRITLIZARD",Enemy,myHero) or 0)
 			local onspelldamage = (GetInventoryHaveItem(3151) and getDmg("LIANDRYS",Enemy,myHero) or 0) + (GetInventoryHaveItem(3188) and getDmg("BLACKFIRE",Enemy,myHero) or 0)
 			local sunfiredamage = (GetInventoryHaveItem(3068) and getDmg("SUNFIRE",Enemy,myHero) or 0)
-			local comboKiller = pdmg + qdmg + wdmg + edmg + rdmg + onhitdmg + onspelldamage + sunfiredamage + idmg + hxgdamage + bwcdamage + botrkdamage
-			local killHim = pdmg + onhitdmg + onspelldamage + sunfiredamage + idmg + hxgdamage + bwcdamage + botrkdamage
-			local ksKiller = 0
-			if QREADY then
+			local comboKiller = pdmg + qdmg + wdmg + edmg + rdmg + onhitdmg + onspelldamage + sunfiredamage + hxgdamage + bwcdamage + botrkdamage
+			local killHim = pdmg + onhitdmg + onspelldamage + sunfiredamage + hxgdamage + bwcdamage + botrkdamage
+			if IREADY then
+				local idmg = getDmg("IGNITE",Enemy,myHero, 3)
+				comboKiller = comboKiller + idmg
+				killHim = killHim + idmg
+				if GetDistance(Enemy)< 600 then
+					if idmg>=Enemy.health then
+						CastSpell(ignite, Enemy)
+					end
+				end
+			end
+			if QREADY then	
 				killMana = killMana + myHero:GetSpellData(_Q).mana
-				ksMana = ksMana	+ myHero:GetSpellData(_Q).mana
 				if GetDistance(Enemy)<=rangeQ then
 					killHim = killHim + qdmg
-					ksKiller = ksKiller + qdmg
+					if qdmg >=Enemy.health and not IsIgnited() then
+						table.insert(ksDamages, qdmg)
+						ksQDmg = qdmg
+					end
 				end
 			end
 			if WREADY then
-				killMana = killMana + myHero:GetSpellData(_W).mana
-				ksMana = ksMana	+ myHero:GetSpellData(_W).mana	
+				killMana = killMana + myHero:GetSpellData(_W).mana	
 				if GetDistance(Enemy)<=rangeW then
 					killHim = killHim + wdmg
-					ksKiller = ksKiller + wdmg
+					if wdmg >=Enemy.health and not IsIgnited() then
+						table.insert(ksDamages, wdmg)
+						ksWDmg = wdmg
+					end
 				end
 			end
 			if EREADY then
 				killMana = killMana + myHero:GetSpellData(_E).mana
-				ksMana = ksMana	+ myHero:GetSpellData(_E).mana	
 				if GetDistance(Enemy)<=rangeE then
 					killHim = killHim + edmg
-					ksKiller = ksKiller + edmg
+					if edmg>=Enemy.health and not IsIgnited() then
+						table.insert(ksDamages, edmg)
+						ksEDmg = edmg
+					end
 				end
 			end
 			if RREADY then
-				killMana = killMana + myHero:GetSpellData(_R).mana	
+				killMana = killMana + myHero:GetSpellData(_R).mana
 				if GetDistance(Enemy)<=rangeR then
 					killHim = killHim + rdmg
+					if rdmg>=Enemy.health and not IsIgnited() then
+						table.insert(ksDamages, rdmg)
+						ksRDmg = rdmg
+					end
 				end
+			end
+			if next(ksDamages)~=nil then
+				table.sort(ksDamages, function (a, b) return a<b end)
+				local lowestKSDmg = ksDamages[1]
+				if qdmg == lowestKSDmg then
+					CastQ(Enemy)
+				elseif wdmg == lowestKSDmg then
+					CastW(Enemy)
+				elseif edmg == lowestKSDmg then
+					CastE(Enemy)
+				elseif rdmg == lowestKSDmg then
+					CastR(Enemy)
+				end
+				table.clear(ksDamages)
 			end
 			if GetInventoryItemIsCastable(3128) then  -- DFG      
 				comboKiller = comboKiller + dfgdamage + (comboKiller*0.2)
@@ -188,24 +220,12 @@ function Target()
 				end
 			end
 			currentTarget = Enemy
-			if ksKiller >= currentTarget.health and ksMana <= myHero.mana then
-				enemyHeros[i].killable = 4
-				if GetDistance(currentTarget) <= killRange then
-					if newTarget == nil then
-						newTarget = currentTarget
-					elseif currentTarget.health < newTarget.health then
-						newTarget = currentTarget
-					end
-					if ValidTarget(newTarget) then
-						ksTarget(newTarget)
-					end
-				end
-			elseif killHim >= currentTarget.health and killMana <= myHero.mana then
+			if killHim >= currentTarget.health and killMana<= myHero.mana then
 				enemyHeros[i].killable = 3
 				if GetDistance(currentTarget) <= killRange then
 					if newTarget == nil then
 						newTarget = currentTarget
-					elseif currentTarget.health < newTarget.health then
+					elseif GetDistance(myHero, newTarget) > GetDistance(myHero, currentTarget) then
 						newTarget = currentTarget
 					end
 					if ValidTarget(newTarget) then
@@ -217,7 +237,7 @@ function Target()
 				if GetDistance(currentTarget) <= killRange then
 					if newTarget == nil then
 						newTarget = currentTarget
-					elseif currentTarget.health < newTarget.health then
+					elseif GetDistance(myHero, newTarget) > GetDistance(myHero, currentTarget) then
 						newTarget = currentTarget
 					end
 					if ValidTarget(newTarget) then
@@ -229,7 +249,7 @@ function Target()
 				if GetDistance(currentTarget) <= killRange then
 					if newTarget == nil then
 						newTarget = currentTarget
-					elseif currentTarget.health < newTarget.health then
+					elseif GetDistance(myHero, newTarget) > GetDistance(myHero, currentTarget) then
 						newTarget = currentTarget
 					end
 					if ValidTarget(newTarget) then
@@ -261,25 +281,19 @@ function Target()
 end
 
 function execute()
-	if tick == 0 or GetTickCount()-tick>100 then
-		Target()
-		tick = GetTickCount()
+	Target()
+end
+function IsIgnited(target)
+	if TargetHaveBuff("SummonerDot", target) then
+		igniteTick = GetTickCount()
+		return true
+	elseif igniteTick == nil or GetTickCount()-igniteTick>500 then
+		return false
 	end
 end
-function igniteCheck(target)
-	if IREADY then
-		if ValidTarget(target) then
-			if idmg>= target.health and GetDistance(target)< 600 then
-				CastSpell(ignite, target)
-			end
-		end
-	else
-		return
-	end
-end
-function farmCheck()
+function farmKey()
 	enemyMinion:update()
-	if next(enemyMinion.objects)~=nil then
+	if next(enemyMinion.objects)~= nil then
 		for j, minion in pairs(enemyMinion.objects) do
 			if minion.valid then
 				local edamage = getDmg("E", minion, myHero, 3)
@@ -292,13 +306,29 @@ function farmCheck()
 						end
 					end
 				end
-			else
-				table.remove(enemyMinion.objects, j)
 			end
 		end
 	end
 end
-function harassCheck()
+function jungleFarm()
+	if not ValidTarget(newTarget) then
+		jungleMinion:update()
+		if next(jungleMinion.objects)~= nil then
+			for j, minion in pairs(jungleMinion.objects) do
+				if minion.valid then
+					if Config.teamFight then
+						CastQ(minion)
+						CastW(minion)
+						CastE(minion)
+					end
+				end
+			end
+		end
+	else
+		return
+	end
+end
+function harassKey()
 	if ValidTarget(newTarget) then
 		if Config.autoE then 
 			CastE(newTarget)
@@ -312,55 +342,8 @@ function harassCheck()
 		end
 	end
 end
-function ksTarget(target)
-	if TargetHaveBuff("SummonerDot", target) then
-		igniteActive = true
-		igniteTick = GetTickCount()
-	elseif igniteTick == nil or GetTickCount()-igniteTick>500 then
-		igniteActive = false
-	end
-	if ValidTarget(target) and not igniteActive then
-		CastItems(target, true)
-		local qdamage = getDmg("Q", target, myHero, 3)
-		local wdamage = getDmg("W", target, myHero, 3)
-		local edamage = getDmg("E", target, myHero, 3)
-		if edamage>=target.health then
-			if EREADY and GetDistance(target)<=rangeE then 
-				CastSpell(_E, target)
-			end
-		elseif qdamage>= target.health then
-			CastQ(target)	
-		elseif wdamage>= target.health then
-			if WREADY then
-				WPos = tpW:GetPrediction(target)
-				if WPos and GetDistance(WPos)<=rangeW then
-					CastSpell(_W, WPos.x, WPos.z)
-					wTick = GetTickCount()
-				end
-			end
-		else
-			if EREADY and GetDistance(target)<=rangeE then 
-				CastSpell(_E, target)
-			end
-			if WREADY then
-				WPos = tpW:GetPrediction(target)
-				if WPos and GetDistance(WPos)<=rangeW then
-					CastSpell(_W, WPos.x, WPos.z)
-					wTick = GetTickCount()
-				end
-			end
-			CastQ(target)
-		end
-	end
-end
 function killTarget(target)
-	if TargetHaveBuff("SummonerDot", target) then
-		igniteActive = true
-		igniteTick = GetTickCount()
-	elseif igniteTick == nil or GetTickCount()-igniteTick>500 then
-		igniteActive = false
-	end
-	if ValidTarget(target) and not igniteActive then
+	if ValidTarget(target) and not IsIgnited() then
 		if Config.autoE then 
 			CastE(target)
 		else
@@ -371,17 +354,7 @@ function killTarget(target)
 		if Config.teamFight then
 			CastItems(target, true)
 			CastQ(target)
-			WPos = tpQ:GetPrediction(target)
-			if WPos and GetDistance(WPos)<=rangeW then
-				CastSpell(_W, WPos.x, WPos.z)
-				wTick = GetTickCount()
-			end
-			if Config.useUltKillable then
-				RPos = tpR:GetPrediction(target)
-				if RPos and GetDistance(RPos)<=rangeR then
-					CastSpell(_R, RPos.x, RPos.z)
-				end
-			end
+			CastW(target)
 		end
 	end
 end
@@ -397,11 +370,7 @@ function comboTarget(target)
 		if Config.teamFight then
 			CastItems(target, true)
 			CastQ(target)
-			WPos = tpQ:GetPrediction(target)
-			if WPos and GetDistance(WPos)<=rangeW then
-				CastSpell(_W, WPos.x, WPos.z)
-				wTick = GetTickCount()
-			end
+			CastW(target)
 		end
 	end
 end
@@ -417,7 +386,11 @@ function harassTarget(target)
 		if Config.teamFight then
 			CastItems(target)
 			CastQ(target)
-			CastW(target)
+			if wTick==nil or GetTickCount()-wTick>=500 then
+				if not TargetHaveBuff("cassiopeianoxiousblasthaste", myHero) and not QREADY then
+					CastW(target)
+				end
+			end
 		end
 	end
 end
@@ -425,9 +398,10 @@ function CastQ(target)
 	if not QREADY then return end
 	if ValidTarget(target) then
 		if GetDistance(target) <= rangeQ and QREADY then
-			QPos = tpQ:GetPrediction(target)
+			local QPos = tpQ:GetPrediction(target)
 			if QPos and GetDistance(QPos)<=rangeQ then
 				CastSpell(_Q, QPos.x, QPos.z)
+				wTick = GetTickCount()
 			end
 		end
 	else
@@ -437,13 +411,10 @@ end
 function CastW(target)
 	if not WREADY then return end
 	if ValidTarget(target) then
-		if not TargetHaveBuff("cassiopeianoxiousblasthaste", myHero) and not QREADY and GetTickCount()-wTick>=200 then
-			if GetDistance(target) <= rangeW and WREADY then
-				WPos = tpQ:GetPrediction(target)
-				if WPos and GetDistance(WPos)<=rangeW then
-					CastSpell(_W, WPos.x, WPos.z)
-					wTick = GetTickCount()
-				end
+		if GetDistance(target) <= rangeW and WREADY then
+			local WPos = tpW:GetPrediction(target)
+			if WPos and GetDistance(WPos)<=rangeW then
+				CastSpell(_W, WPos.x, WPos.z)
 			end
 		end
 	else
@@ -466,7 +437,10 @@ function CastR(target)
 	if not RREADY then return end
 	if ValidTarget(target) then
 		if GetDistance(target) <= rangeR and RREADY then
-
+			local RPos = tpR:GetPrediction(target)
+			if RPos and GetDistance(RPos)<=rangeR then
+				CastSpell(_R, RPos.x, RPos.z)
+			end
 		end
 	else
 		return
@@ -496,8 +470,7 @@ function CastItems(target, allItems)
 		end
 	end
 end
-function orbWalk()
-		
+function orbWalk()		
 	if GetTickCount() > NextShot then
 		if ValidTarget(newTarget) then
 			if GetDistance(newTarget)<=myHero.range +70 then
@@ -543,28 +516,6 @@ function orbWalk()
 		end
 	end
 end
-function jungleFarm()
-	jungleMinion:update()
-	if not ValidTarget(newTarget) then
-		for j, minion in pairs(jungleMinion.objects) do
-			if minion.valid then
-				if Config.autoE then 
-					CastE(minion)
-				else
-					if Config.teamFight then
-						CastE(minion)
-					end
-				end
-				if Config.teamFight then
-					CastQ(minion)
-					CastW(minion)
-				end
-			end
-		end
-	else
-		return
-	end
-end
 function OnDraw()
 	if not myHero.dead then
 		if ValidTarget(newTarget) and Config.DrawArrow then
@@ -572,9 +523,6 @@ function OnDraw()
 		end
 		if Config.DrawCircles then
 			DrawCircle(myHero.x, myHero.y, myHero.z, killRange, ARGB(87,183,60,244))
-			if RREADY then
-				DrawCircle(myHero.x, myHero.y, myHero.z, rangeR, ARGB(255,255,143,20))
-			end
 		end
 		for i = 1, enemyHerosCount do
 			local Enemy = enemyHeros[i].object
@@ -602,6 +550,3 @@ function OnProcessSpell(unit, spell)
 		NextShot = GetTickCount() + spell.animationTime * 1000
 	end
 end
-
-	
-	
