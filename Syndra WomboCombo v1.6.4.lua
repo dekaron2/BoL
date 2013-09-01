@@ -51,7 +51,7 @@ function LoadVIPPrediction()
 	tpQ = TargetPredictionVIP(rangeQ, 1650, 0.25)
 	tpE = TargetPredictionVIP(rangeE, 2000, 0.25)
 	tpW = TargetPredictionVIP(rangeW, 1500, 0.25)
-	tpS = TargetPredictionVIP(1350, 1900, 0.25)
+	tpS = TargetPredictionVIP(1350, 2000, 0.25)
 end
 function LoadMinions()
 	enemyMinion = minionManager(MINION_ENEMY, rangeQ, player, MINION_SORT_HEALTH_ASC)
@@ -330,7 +330,7 @@ function stunComboKey()
 			local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
 			if stunMana<=myHero.mana then
 				if QREADY and EREADY then
-					local stunPos = newTarget
+					local stunPos = tpS:GetPrediction(newTarget)
 					if GetDistance(stunPos)>=rangeE then
 						local dist = GetDistance(myHero, stunPos)
 						local EnemyPos = Vector(stunPos.x, stunPos.y, stunPos.z)
@@ -472,7 +472,7 @@ function CastE(target)
 		if next(orbs)~= nil then
 			for i, obj in pairs(orbs) do
 				if obj.valid then
-					local stunPos = target
+					local stunPos = tpS:GetPrediction(target)
 					if stunPos then
 						local dist = GetDistance(myHero, stunPos)
 						if GetDistance(obj, myHero)< dist and GetDistance(obj, stunPos) < dist then
