@@ -13,14 +13,14 @@ function OnUnload()
 end
 function LoadMenu()
 	Config = scriptConfig("Syndra WomboCombo 1.6.4", "Syndra WomboCombo")
-	Config:addParam("harass", "Harass (X)", SCRIPT_PARAM_ONKEYDOWN, false, 88)
+	Config:addParam("stunCombo", "Stun Combo (X)", SCRIPT_PARAM_ONKEYDOWN, false, 88)
 	Config:addParam("teamFight", "TeamFight (SpaceBar)", SCRIPT_PARAM_ONKEYDOWN, false, 32)
 	Config:addParam("farm", "Farm (Z)", SCRIPT_PARAM_ONKEYTOGGLE, false, 90)
 	Config:addParam("DrawCircles", "Draw Circles", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("DrawArrow", "Draw Arrow", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("MinionMarker", "Minion Marker", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("moveToMouse", "Move To Mouse", SCRIPT_PARAM_ONOFF, true)
-	Config:permaShow("harass")
+	Config:permaShow("stunCombo")
 	Config:permaShow("teamFight")
 	Config:permaShow("farm")
 	PrintFloatText(myHero,2,"Syndra WomboCombo v1.6.4 Loaded!")
@@ -51,6 +51,7 @@ function LoadVIPPrediction()
 	tpQ = TargetPredictionVIP(rangeQ, 1650, 0.25)
 	tpE = TargetPredictionVIP(rangeE, 2000, 0.25)
 	tpW = TargetPredictionVIP(rangeW, 1500, 0.25)
+	tpS = TargetPredictionVIP(1350, 1900, 0.25)
 end
 function LoadMinions()
 	enemyMinion = minionManager(MINION_ENEMY, rangeQ, player, MINION_SORT_HEALTH_ASC)
@@ -87,11 +88,11 @@ function OnTick()
 		execute()
 		orbWalk()
 		jungleFarm()
-		if Config.farm and not Config.teamFight and not Config.harass then
+		if Config.farm and not Config.teamFight and not Config.stunCombo then
 			farmKey()
 		end
-		if Config.harass then
-			harassKey()
+		if Config.stunCombo then
+			stunComboKey()
 		end
 	end
 end
@@ -284,7 +285,14 @@ function farmKey()
 	if next(enemyMinion.objects)~= nil then
 		for j, minion in pairs(enemyMinion.objects) do
 			if minion.valid then
-
+				if GetDistance(minion)<=myHero.range +65 then
+					local ADdmg = getDmg("AD", minion, myHero, 3)
+					if ADdmg>=minion.health then
+						if GetTickCount() > NextShot then
+							myHero:Attack(minion)
+						end
+					end
+				end
 			end
 		end
 	end
@@ -316,10 +324,40 @@ function removeOrbs()
 		end
 	end
 end
-function harassKey()
+function stunComboKey()
 	if ValidTarget(newTarget) then
-		if Config.teamFight then
-			
+		if Config.stunCombo then
+			local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
+			if stunMana<=myHero.mana then
+				if QREADY and EREADY then
+					local stunPos = newTarget
+					if GetDistance(stunPos)>=rangeE then
+						local dist = GetDistance(myHero, stunPos)
+						local EnemyPos = Vector(stunPos.x, stunPos.y, stunPos.z)
+						local HeroPos = Vector(myHero.x, myHero.y, myHero.z)
+						local Pos = HeroPos + (HeroPos-EnemyPos)*(-rangeE/GetDistance(stunPos))
+						if GetDistance(Pos, myHero)< dist and GetDistance(Pos, stunPos) < dist then
+							local _, p2, isOnLineSegment = VectorPointProjectionOnLineSegment(myHero, stunPos, Pos)
+							if isOnLineSegment and GetDistance(Pos, p2)<= 105 then
+								if GetDistance(Pos)<=rangeQ then
+									CastSpell(_Q, Pos.x, Pos.z)
+								end
+								if GetDistance(Pos)<=rangeE then
+									CastSpell(_E, Pos.x, Pos.z)
+									orbTick = GetTickCount()
+								end
+							end
+						end
+					else
+						CastSpell(_Q, stunPos.x, stunPos.z)
+						CastSpell(_E, stunPos.x, stunPos.z)
+					end
+				else
+					return
+				end
+			else
+				return
+			end
 		end
 	end
 end
