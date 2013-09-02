@@ -23,8 +23,6 @@ function LoadMenu()
 	Config:addParam("autoE", "Auto E (M)", SCRIPT_PARAM_ONKEYTOGGLE, true, 77)
 	Config:addParam("useUltKillable", "Use Ult 'killHim' (U)", SCRIPT_PARAM_ONKEYTOGGLE, true, 85)
 	Config:addParam("creeps", "Creeps (J)", SCRIPT_PARAM_ONKEYDOWN, false, 74)
-	--Config:addParam("nearestTarget", "Nearest Target (T)", SCRIPT_PARAM_ONKEYTOGGLE, false, 84)
-	--Config:permaShow("nearestTarget")
 	Config:addParam("setUltEnemies", "No. Enemies facing", SCRIPT_PARAM_SLICE, 1, 1, 6, 0)
 	Config:permaShow("setUltEnemies")
 	Config:permaShow("useUltKillable")
@@ -55,9 +53,9 @@ function LoadSkillRanges()
 	killRange = 950
 end
 function LoadVIPPrediction()
-	tpQ = TargetPredictionVIP(rangeQ, 2000, 0.25)
-	tpW = TargetPredictionVIP(rangeW, 2000, 0.25)
-	tpR = TargetPredictionVIP(rangeR, 2000, 0.25)
+	tpQ = TargetPredictionVIP(rangeQ, math.huge, 0.6)
+	tpW = TargetPredictionVIP(rangeW, math.huge, 0.375)
+	tpR = TargetPredictionVIP(rangeR, math.huge, 0.5)
 end
 function LoadMinions()
 	enemyMinion = minionManager(MINION_ENEMY, rangeQ, player, MINION_SORT_HEALTH_ASC)
@@ -385,11 +383,7 @@ function harassTarget(target)
 		if Config.teamFight then
 			CastItems(target)
 			CastQ(target)
-			if wTick==nil or GetTickCount()-wTick>=500 then
-				if not TargetHaveBuff("cassiopeianoxiousblasthaste", myHero) and not QREADY then
-					CastW(target)
-				end
-			end
+			CastW(target)
 		end
 	end
 end
