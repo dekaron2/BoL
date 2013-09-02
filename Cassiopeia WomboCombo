@@ -22,6 +22,7 @@ function LoadMenu()
 	Config:addParam("moveToMouse", "Move To Mouse", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("autoE", "Auto E (M)", SCRIPT_PARAM_ONKEYTOGGLE, true, 77)
 	Config:addParam("useUltKillable", "Use Ult 'killHim' (U)", SCRIPT_PARAM_ONKEYTOGGLE, true, 85)
+	Config:addParam("creeps", "Creeps (J)", SCRIPT_PARAM_ONKEYDOWN, false, 74)
 	--Config:addParam("nearestTarget", "Nearest Target (T)", SCRIPT_PARAM_ONKEYTOGGLE, false, 84)
 	--Config:permaShow("nearestTarget")
 	Config:addParam("setUltEnemies", "No. Enemies facing", SCRIPT_PARAM_SLICE, 1, 1, 6, 0)
@@ -302,10 +303,6 @@ function farmKey()
 				if edamage>=minion.health then
 					if Config.autoE then 
 						CastE(minion)
-					else
-						if Config.teamFight then
-							CastE(minion)
-						end
 					end
 				end
 			end
@@ -318,7 +315,7 @@ function jungleFarm()
 		if next(jungleMinion.objects)~= nil then
 			for j, minion in pairs(jungleMinion.objects) do
 				if minion.valid then
-					if Config.teamFight then
+					if Config.creeps then
 						CastQ(minion)
 						CastW(minion)
 						CastE(minion)
@@ -475,7 +472,7 @@ end
 function orbWalk()		
 	if GetTickCount() > NextShot then
 		if ValidTarget(newTarget) then
-			if GetDistance(newTarget)<=myHero.range +70 then
+			if GetDistance(newTarget)<=myHero.range +70 and Config.teamFight then
 				myHero:Attack(newTarget)
 			else
 				if Config.teamFight and Config.moveToMouse then
@@ -488,7 +485,7 @@ function orbWalk()
 			jungleMinion:update()
 			for i, minion in pairs(enemyMinion.objects) do
 				if minion.valid then
-					if GetDistance(minion)<=myHero.range+70 and Config.teamFight then
+					if GetDistance(minion)<=myHero.range+70 and Config.creeps then
 						myHero:Attack(minion)
 						minionRange = true
 					else
@@ -498,7 +495,7 @@ function orbWalk()
 			end
 			for j, minion in pairs(jungleMinion.objects) do
 				if minion.valid then
-					if GetDistance(minion)<=myHero.range+70 and Config.teamFight then
+					if GetDistance(minion)<=myHero.range+70 and Config.creeps then
 						myHero:Attack(minion)
 						minionRange = true
 					else
