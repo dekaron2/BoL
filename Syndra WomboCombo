@@ -1,4 +1,4 @@
-if myHero.charName ~= "Syndra" then return end
+if myHero.charName ~= "Cassiopeia" then return end
 function OnLoad()
 	LoadMenu()
 	LoadVariables()
@@ -9,21 +9,30 @@ function OnLoad()
 	LoadEnemies()
 end
 function OnUnload()
-	PrintFloatText(myHero,2,"Syndra WomboCombo v1.6.4 UnLoaded!")
+	PrintFloatText(myHero,2,"Cassiopeia WomboCombo v1.2.9 UnLoaded!")
 end
 function LoadMenu()
-	Config = scriptConfig("Syndra WomboCombo 1.6.4", "Syndra WomboCombo")
-	Config:addParam("stunCombo", "Stun Combo (X)", SCRIPT_PARAM_ONKEYDOWN, false, 88)
+	Config = scriptConfig("Cassiopeia WomboCombo 1.2.9", "Cassiopeia WomboCombo")
+	Config:addParam("harass", "Harass (X)", SCRIPT_PARAM_ONKEYDOWN, false, 88)
 	Config:addParam("teamFight", "TeamFight (SpaceBar)", SCRIPT_PARAM_ONKEYDOWN, false, 32)
 	Config:addParam("farm", "Farm (Z)", SCRIPT_PARAM_ONKEYTOGGLE, false, 90)
 	Config:addParam("DrawCircles", "Draw Circles", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("DrawArrow", "Draw Arrow", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("MinionMarker", "Minion Marker", SCRIPT_PARAM_ONOFF, true)
 	Config:addParam("moveToMouse", "Move To Mouse", SCRIPT_PARAM_ONOFF, true)
-	Config:permaShow("stunCombo")
+	Config:addParam("autoE", "Auto E (M)", SCRIPT_PARAM_ONKEYTOGGLE, true, 77)
+	Config:addParam("useUltKillable", "Use Ult 'killHim' (U)", SCRIPT_PARAM_ONKEYTOGGLE, true, 85)
+	Config:addParam("creeps", "Creeps (J)", SCRIPT_PARAM_ONKEYDOWN, false, 74)
+	--Config:addParam("nearestTarget", "Nearest Target (T)", SCRIPT_PARAM_ONKEYTOGGLE, false, 84)
+	--Config:permaShow("nearestTarget")
+	Config:addParam("setUltEnemies", "No. Enemies facing", SCRIPT_PARAM_SLICE, 1, 1, 6, 0)
+	Config:permaShow("setUltEnemies")
+	Config:permaShow("useUltKillable")
+	Config:permaShow("autoE")
+	Config:permaShow("harass")
 	Config:permaShow("teamFight")
 	Config:permaShow("farm")
-	PrintFloatText(myHero,2,"Syndra WomboCombo v1.6.4 Loaded!")
+	PrintFloatText(myHero,2,"Cassiopeia WomboCombo v1.2.9 Loaded!")
 end
 function LoadVariables()
 	ignite = nil
@@ -34,24 +43,21 @@ function LoadVariables()
 	minionRange = false
 	tick = 0
 	igniteTick = 0
-	orbs = {}
-	orbCount = 0
-	orbTick = 0
+	wTick = 0
 	ksDamages = {}
 	newTarget = nil
 end
 function LoadSkillRanges()
-	rangeQ = 825
-	rangeW = 1000
-	rangeE = 625
-	rangeR = 675
-	killRange = 1000
+	rangeQ = 925
+	rangeW = 950
+	rangeE = 700
+	rangeR = 750
+	killRange = 950
 end
 function LoadVIPPrediction()
-	tpQ = TargetPredictionVIP(rangeQ, 1650, 0.25)
-	tpE = TargetPredictionVIP(rangeE, 2000, 0.25)
-	tpW = TargetPredictionVIP(rangeW, 1500, 0.25)
-	tpS = TargetPredictionVIP(1350, 2000, 0.25)
+	tpQ = TargetPredictionVIP(rangeQ, 2000, 0.25)
+	tpW = TargetPredictionVIP(rangeW, 2000, 0.25)
+	tpR = TargetPredictionVIP(rangeR, 2000, 0.25)
 end
 function LoadMinions()
 	enemyMinion = minionManager(MINION_ENEMY, rangeQ, player, MINION_SORT_HEALTH_ASC)
@@ -84,34 +90,31 @@ function OnTick()
 		RREADY = (myHero:CanUseSpell(_R) == READY)
 		IREADY = (ignite ~= nil and myHero:CanUseSpell(ignite) == READY)
 		checkKillRange()
-		removeOrbs()
 		execute()
 		orbWalk()
 		jungleFarm()
-		if Config.farm and not Config.teamFight and not Config.stunCombo then
+		if Config.farm and not Config.teamFight and not Config.harass then
 			farmKey()
 		end
-		if Config.stunCombo then
-			stunComboKey()
+		if Config.harass then
+			harassKey()
 		end
 	end
 end
 function checkKillRange()
-	local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
-	if QREADY and EREADY and stunMana<=myHero.mana then 
-		killRange = 1350
-	elseif WREADY then
-		killRange = 1000
+	--ADD killRange here
+	if WREADY then
+		killRange = 950
+	elseif QREADY then
+		killRange = 925
 	else
-		killRange = 825
-	end
-	if myHero:GetSpellData(_R).level == 3 then
-		rangeR = 750
+		killRange = 750
 	end
 end
 function Target()
 	local currentTarget = nil
 	local killMana = 0
+	local facing = 0
 	if ValidTarget(newTarget) then
 		if GetDistance(newTarget)>killRange then
 			newTarget = nil
@@ -126,7 +129,7 @@ function Target()
 			local qdmg = getDmg("Q", Enemy, myHero, 3)
 			local wdmg = getDmg("W", Enemy, myHero, 3)
 			local edmg = getDmg("E", Enemy, myHero, 3)
-			local rdmg = getDmg("R", Enemy, myHero, 1)
+			local rdmg = getDmg("R", Enemy, myHero, 3)
 			local ADdmg = getDmg("AD", Enemy, myHero, 3)
 			local dfgdamage = (GetInventoryItemIsCastable(3128) and getDmg("DFG",Enemy,myHero) or 0) -- Deathfire Grasp
 			local hxgdamage = (GetInventoryItemIsCastable(3146) and getDmg("HXG",Enemy,myHero) or 0) -- Hextech Gunblade
@@ -153,6 +156,7 @@ function Target()
 					killHim = killHim + qdmg
 					if qdmg >=Enemy.health and not IsIgnited() then
 						table.insert(ksDamages, qdmg)
+						ksQDmg = qdmg
 					end
 				end
 			end
@@ -160,8 +164,9 @@ function Target()
 				killMana = killMana + myHero:GetSpellData(_W).mana	
 				if GetDistance(Enemy)<=rangeW then
 					killHim = killHim + wdmg
-					if wdmg >=Enemy.health and not IsIgnited() and wUsed() then
+					if wdmg >=Enemy.health and not IsIgnited() then
 						table.insert(ksDamages, wdmg)
+						ksWDmg = wdmg
 					end
 				end
 			end
@@ -171,21 +176,17 @@ function Target()
 					killHim = killHim + edmg
 					if edmg>=Enemy.health and not IsIgnited() then
 						table.insert(ksDamages, edmg)
-						orbTick = GetTickCount()
+						ksEDmg = edmg
 					end
 				end
 			end
 			if RREADY then
-				killMana = killMana + myHero:GetSpellData(_R).mana	
+				killMana = killMana + myHero:GetSpellData(_R).mana
 				if GetDistance(Enemy)<=rangeR then
-					if orbCount>0 then
-						if rdmg*3+(rdmg*orbCount) >= Enemy.health and not IsIgnited() then
-							table.insert(ksDamages, rdmg*3+(rdmg*orbCount))
-						end
-					else
-						if rdmg*3>=Enemy.health and not IsIgnited() then
-							table.insert(ksDamages, rdmg*3)
-						end
+					killHim = killHim + rdmg
+					if rdmg>=Enemy.health and not IsIgnited()and Config.useUltKillable then
+						table.insert(ksDamages, rdmg)
+						ksRDmg = rdmg
 					end
 				end
 			end
@@ -198,12 +199,8 @@ function Target()
 					CastW(Enemy)
 				elseif edmg == lowestKSDmg then
 					CastE(Enemy)
-				elseif orbCount>0 then
-					if rdmg*3+(rdmg*orbCount) == lowestKSDmg then
-						CastR(Enemy)
-					end
-				else
-					if rdmg*3==lowestKSDmg then
+				elseif rdmg == lowestKSDmg then
+					if Config.useUltKillable then
 						CastR(Enemy)
 					end
 				end
@@ -263,6 +260,23 @@ function Target()
 					end
 				end	
 			end
+			local rCount = CountEnemyHeroInRange(killRange)
+			if rCount >= 1 then
+				if GetDistance(Enemy)<=killRange then
+					RPos = tpR:GetPrediction(Enemy)
+					if RPos then
+						if GetDistance(RPos)<GetDistance(Enemy) then
+							facing = facing + 1
+							if facing>= Config.setUltEnemies then
+								if GetDistance(Enemy)<=rangeR then
+									CastSpell(_R, Enemy.x, Enemy.z)
+								end
+							end
+						end
+						
+					end
+				end		
+			end
 		else
 			killable = 0
 		end
@@ -285,11 +299,13 @@ function farmKey()
 	if next(enemyMinion.objects)~= nil then
 		for j, minion in pairs(enemyMinion.objects) do
 			if minion.valid then
-				if GetDistance(minion)<=myHero.range +65 then
-					local ADdmg = getDmg("AD", minion, myHero, 3)
-					if ADdmg>=minion.health then
-						if GetTickCount() > NextShot then
-							myHero:Attack(minion)
+				local edamage = getDmg("E", minion, myHero, 3)
+				if edamage>=minion.health then
+					if Config.autoE then 
+						CastE(minion)
+					else
+						if Config.teamFight then
+							CastE(minion)
 						end
 					end
 				end
@@ -303,9 +319,10 @@ function jungleFarm()
 		if next(jungleMinion.objects)~= nil then
 			for j, minion in pairs(jungleMinion.objects) do
 				if minion.valid then
-					if Config.teamFight then
+					if Config.creeps then
 						CastQ(minion)
 						CastW(minion)
+						CastE(minion)
 					end
 				end
 			end
@@ -314,58 +331,31 @@ function jungleFarm()
 		return
 	end
 end
-function removeOrbs()
-	if next(orbs)~=nil then
-		for i, obj in pairs(orbs) do
-			if not obj.valid then
-				table.remove(orbs, i)
-				orbCount = orbCount - 1
+function harassKey()
+	if ValidTarget(newTarget) then
+		if Config.autoE then 
+			CastE(newTarget)
+		else
+			if Config.harass then
+				CastE(newTarget)
 			end
 		end
-	end
-end
-function stunComboKey()
-	if ValidTarget(newTarget) then
-		if Config.stunCombo then
-			local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
-			if stunMana<=myHero.mana then
-				if QREADY and EREADY then
-					local stunPos = tpS:GetPrediction(newTarget)
-					if GetDistance(stunPos)>=rangeE then
-						local dist = GetDistance(myHero, stunPos)
-						local EnemyPos = Vector(stunPos.x, stunPos.y, stunPos.z)
-						local HeroPos = Vector(myHero.x, myHero.y, myHero.z)
-						local Pos = HeroPos + (HeroPos-EnemyPos)*(-rangeE/GetDistance(stunPos))
-						if GetDistance(Pos, myHero)< dist and GetDistance(Pos, stunPos) < dist then
-							local _, p2, isOnLineSegment = VectorPointProjectionOnLineSegment(myHero, stunPos, Pos)
-							if isOnLineSegment and GetDistance(Pos, p2)<= 105 then
-								if GetDistance(Pos)<=rangeQ then
-									CastSpell(_Q, Pos.x, Pos.z)
-								end
-								if GetDistance(Pos)<=rangeE then
-									CastSpell(_E, Pos.x, Pos.z)
-									orbTick = GetTickCount()
-								end
-							end
-						end
-					else
-						CastSpell(_Q, stunPos.x, stunPos.z)
-						CastSpell(_E, stunPos.x, stunPos.z)
-					end
-				else
-					return
-				end
-			else
-				return
-			end
+		if Config.harass then
+			CastQ(newTarget)
 		end
 	end
 end
 function killTarget(target)
 	if ValidTarget(target) and not IsIgnited() then
+		if Config.autoE then 
+			CastE(target)
+		else
+			if Config.teamFight then
+				CastE(target)
+			end
+		end
 		if Config.teamFight then
 			CastItems(target, true)
-			CastE(target)
 			CastQ(target)
 			CastW(target)
 		end
@@ -373,9 +363,15 @@ function killTarget(target)
 end
 function comboTarget(target)
 	if ValidTarget(target) then
+		if Config.autoE then 
+			CastE(target)
+		else
+			if Config.teamFight then
+				CastE(target)
+			end
+		end
 		if Config.teamFight then
 			CastItems(target, true)
-			CastE(target)
 			CastQ(target)
 			CastW(target)
 		end
@@ -383,12 +379,21 @@ function comboTarget(target)
 end
 function harassTarget(target)
 	if ValidTarget(target) then
+		if Config.autoE then 
+			CastE(target)
+		else
+			if Config.teamFight then
+				CastE(target)
+			end
+		end
 		if Config.teamFight then
 			CastItems(target)
-			CastE(target)
 			CastQ(target)
-			CastW(target)
-			
+			if wTick==nil or GetTickCount()-wTick>=500 then
+				if not TargetHaveBuff("cassiopeianoxiousblasthaste", myHero) and not QREADY then
+					CastW(target)
+				end
+			end
 		end
 	end
 end
@@ -399,8 +404,7 @@ function CastQ(target)
 			local QPos = tpQ:GetPrediction(target)
 			if QPos and GetDistance(QPos)<=rangeQ then
 				CastSpell(_Q, QPos.x, QPos.z)
-			else
-				return
+				wTick = GetTickCount()
 			end
 		end
 	else
@@ -410,56 +414,10 @@ end
 function CastW(target)
 	if not WREADY then return end
 	if ValidTarget(target) then
-		if not wUsed() then
-			if WREADY then
-				if next(orbs)~= nil then
-					for i, obj in pairs(orbs) do
-						if obj.valid then
-							if orbTick == nil or GetTickCount()-orbTick>=900 then
-								if GetDistance(obj)<= rangeW then
-									CastSpell(_W, obj.x, obj.z)
-								else
-									return
-								end
-							end
-						else
-							table.remove(orbs, i)
-							orbCount = orbCount - 1
-						end
-					end
-				else
-					local nearestMinion = nil
-					enemyMinion:update()
-					if next(enemyMinion.objects)~=nil then
-						for m, minion in pairs(enemyMinion.objects) do
-							if minion.valid then
-								local wdamage = getDmg("W", minion, myHero, 3)
-								local currentMinion = minion
-								if wdamage>=minion.health then
-									if GetDistance(minion)<rangeW then
-										CastSpell(_W, minion.x, minion.z)
-									end
-								else
-									if nearestMinion == nil then
-										nearestMinion = currentMinion
-									elseif GetDistance(currentMinion)< GetDistance(nearestMinion) then
-										nearestMinion = currentMinion
-									end
-									if GetDistance(nearestMinion)<=rangeW then
-										CastSpell(_W, minion.x, minion.z)
-									end
-								end	
-							end
-						end
-					end
-				end
-			end
-		elseif wUsed() then
-			if GetDistance(target)<=rangeW then
-				local WPos = tpW:GetPrediction(target)
-				if WPos and GetDistance(WPos)<=rangeW then
-					CastSpell(_W, WPos.x, WPos.z)
-				end
+		if GetDistance(target) <= rangeW and WREADY then
+			local WPos = tpW:GetPrediction(target)
+			if WPos and GetDistance(WPos)<=rangeW then
+				CastSpell(_W, WPos.x, WPos.z)
 			end
 		end
 	else
@@ -469,97 +427,9 @@ end
 function CastE(target)
 	if not EREADY then return end
 	if ValidTarget(target) then
-		if next(orbs)~= nil then
-			for i, obj in pairs(orbs) do
-				if obj.valid then
-					local stunPos = tpS:GetPrediction(target)
-					if stunPos then
-						local dist = GetDistance(myHero, stunPos)
-						if GetDistance(obj, myHero)< dist and GetDistance(obj, stunPos) < dist then
-							local _, p2, isOnLineSegment = VectorPointProjectionOnLineSegment(myHero, stunPos, obj)
-							if isOnLineSegment and GetDistance(obj, p2)<= 105 then
-								if GetDistance(obj)<=rangeE then
-									CastSpell(_E, obj.x, obj.z)
-									orbTick = GetTickCount()
-								end
-							else
-								if GetDistance(stunPos)>=rangeE then
-									if QREADY then
-										local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
-										if stunMana<=myHero.mana then
-											local dist = GetDistance(myHero, stunPos)
-											local EnemyPos = Vector(stunPos.x, stunPos.y, stunPos.z)
-											local HeroPos = Vector(myHero.x, myHero.y, myHero.z)
-											local Pos = HeroPos + (HeroPos-EnemyPos)*(-rangeE/GetDistance(stunPos))
-											if GetDistance(Pos, myHero)< dist and GetDistance(Pos, stunPos) < dist then
-												local _, p2, isOnLineSegment = VectorPointProjectionOnLineSegment(myHero, stunPos, Pos)
-												if isOnLineSegment and GetDistance(Pos, p2)<= 105 then
-													if GetDistance(Pos)<=rangeQ then
-														CastSpell(_Q, Pos.x, Pos.z)
-													end
-													if GetDistance(Pos)<=rangeE then
-														CastSpell(_E, Pos.x, Pos.z)
-														orbTick = GetTickCount()
-													end
-												end
-											end
-										else 
-											return
-										end
-									end
-								else
-									if QREADY then
-										local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
-										if stunMana<=myHero.mana then
-											CastSpell(_Q, target.x, target.z)
-										else 
-											return
-										end
-									end
-								end
-							end
-						end
-					end
-				else
-					table.remove(orbs, i)
-					orbCount = orbCount - 1
-				end
-			end
-		else
-			if GetDistance(target)>=rangeE then
-				if QREADY then
-					local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
-					if stunMana<=myHero.mana then
-						local stunPos = target
-						local dist = GetDistance(myHero, stunPos)
-						local EnemyPos = Vector(stunPos.x, stunPos.y, stunPos.z)
-						local HeroPos = Vector(myHero.x, myHero.y, myHero.z)
-						local Pos = HeroPos + (HeroPos-EnemyPos)*(-rangeE/GetDistance(stunPos))
-						if GetDistance(Pos, myHero)< dist and GetDistance(Pos, stunPos) < dist then
-							local _, p2, isOnLineSegment = VectorPointProjectionOnLineSegment(myHero, stunPos, Pos)
-							if isOnLineSegment and GetDistance(Pos, p2)<= 105 then
-								if GetDistance(Pos)<=rangeQ then
-									CastSpell(_Q, Pos.x, Pos.z)
-								end
-								if GetDistance(Pos)<=rangeE then
-									CastSpell(_E, Pos.x, Pos.z)
-									orbTick = GetTickCount()
-								end
-							end
-						end
-					else
-						return
-					end
-				end
-			else
-				if QREADY then
-					local stunMana = myHero:GetSpellData(_Q).mana + myHero:GetSpellData(_E).mana
-					if stunMana<=myHero.mana then
-						CastSpell(_Q, target.x, target.z)
-					else 
-						return
-					end
-				end
+		if GetDistance(target) <= rangeE and EREADY then
+			if TargetHaveBuff("cassiopeianoxiousblastpoison", target) or TargetHaveBuff("cassiopeiamiasmapoison", target) then
+				CastSpell(_E, target)
 			end
 		end
 	else
@@ -570,18 +440,13 @@ function CastR(target)
 	if not RREADY then return end
 	if ValidTarget(target) then
 		if GetDistance(target) <= rangeR and RREADY then
-			CastSpell(_R, target)
+			local RPos = tpR:GetPrediction(target)
+			if RPos and GetDistance(RPos)<=rangeR then
+				CastSpell(_R, RPos.x, RPos.z)
+			end
 		end
 	else
 		return
-	end
-end
-function wUsed() 
-	wData = myHero:GetSpellData(_W)
-	if wData.name == "syndrawcast" then 
-		return true 
-	else 
-		return false
 	end
 end
 function CastItems(target, allItems)
@@ -611,7 +476,7 @@ end
 function orbWalk()		
 	if GetTickCount() > NextShot then
 		if ValidTarget(newTarget) then
-			if GetDistance(newTarget)<=myHero.range +70 then
+			if GetDistance(newTarget)<=myHero.range +70 and Config.teamFight then
 				myHero:Attack(newTarget)
 			else
 				if Config.teamFight and Config.moveToMouse then
@@ -624,7 +489,7 @@ function orbWalk()
 			jungleMinion:update()
 			for i, minion in pairs(enemyMinion.objects) do
 				if minion.valid then
-					if GetDistance(minion)<=myHero.range+70 and Config.teamFight then
+					if GetDistance(minion)<=myHero.range+70 and Config.creeps then
 						myHero:Attack(minion)
 						minionRange = true
 					else
@@ -634,7 +499,7 @@ function orbWalk()
 			end
 			for j, minion in pairs(jungleMinion.objects) do
 				if minion.valid then
-					if GetDistance(minion)<=myHero.range+70 and Config.teamFight then
+					if GetDistance(minion)<=myHero.range+70 and Config.creeps then
 						myHero:Attack(minion)
 						minionRange = true
 					else
@@ -652,16 +517,6 @@ function orbWalk()
 		if Config.teamFight and Config.moveToMouse then
 			myHero:MoveTo(mousePos.x, mousePos.z)
 		end
-	end
-end
-function OnCreateObj(obj)	
-	if obj~= nil and obj.name:find("Syndra_DarkSphere5_idle.troy") then
-			table.insert(orbs, obj)
-			orbCount = orbCount + 1
-	end	
-	if obj~= nil and obj.name:find("Syndra_DarkSphere_idle.troy") then
-			table.insert(orbs, obj)
-			orbCount = orbCount + 1
 	end
 end
 function OnDraw()
