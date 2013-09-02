@@ -183,7 +183,7 @@ function Target()
 				killMana = killMana + myHero:GetSpellData(_R).mana
 				if GetDistance(Enemy)<=rangeR then
 					killHim = killHim + rdmg
-					if rdmg>=Enemy.health and not IsIgnited() then
+					if rdmg>=Enemy.health and not IsIgnited()and Config.useUltKillable then
 						table.insert(ksDamages, rdmg)
 						ksRDmg = rdmg
 					end
@@ -199,7 +199,9 @@ function Target()
 				elseif edmg == lowestKSDmg then
 					CastE(Enemy)
 				elseif rdmg == lowestKSDmg then
-					CastR(Enemy)
+					if Config.useUltKillable then
+						CastR(Enemy)
+					end
 				end
 				table.clear(ksDamages)
 			end
