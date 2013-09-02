@@ -288,10 +288,13 @@ function farmKey()
 			if minion.valid then
 				if GetDistance(minion)<=myHero.range +65 then
 					local ADdmg = getDmg("AD", minion, myHero, 3)
+					local qDmg = getDmg("Q", minion, myHero, 3)
 					if ADdmg>=minion.health then
 						if GetTickCount() > NextShot then
 							myHero:Attack(minion)
 						end
+					elseif qDmg>=minion.health then
+						CastQ(minion)
 					end
 				end
 			end
