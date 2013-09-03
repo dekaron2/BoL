@@ -418,7 +418,7 @@ function CastE(target)
 	if not EREADY then return end
 	if ValidTarget(target) then
 		if GetDistance(target) <= rangeE and EREADY then
-			if TargetHaveBuff("cassiopeianoxiousblastpoison", target) or TargetHaveBuff("cassiopeiamiasmapoison", target) then
+			if TargetHaveBuff("cassiopeianoxiousblastpoison", target) or TargetHaveBuff("cassiopeiamiasmapoison", target) or TargetHaveBuff("toxicshotparticle", target) or TargetHaveBuff("bantamtraptarget", target) or TargetHaveBuff("poisontrailtarget", target) or TargetHaveBuff("deadlyvenom", target) then
 				CastSpell(_E, target)
 			end
 		end
